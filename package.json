@@ -1,11 +1,12 @@
 {
   "name": "posprint",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node server-v3.js",
+    "dev": "node --watch server-v3.js",
+    "check": "node --check server-v3.js"
   },
   "dependencies": {
     "express": "^5.1.0",
