@@ -4,7 +4,8 @@ import pg from 'pg';
 const { Pool } = pg;
 const app = express();
 const port = process.env.PORT || 3000;
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : undefined });
+const isRailwayInternalDb = (process.env.DATABASE_URL || '').includes('.railway.internal');
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_URL && !isRailwayInternalDb ? { rejectUnauthorized: false } : false });
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static('public'));
