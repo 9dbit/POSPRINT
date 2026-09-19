@@ -1,38 +1,39 @@
 const rupiah=n=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Number(n||0));
-let meta={products:[],addons:[],machines:[]};
-async function get(url,opts){const r=await fetch(url,opts);const j=await r.json();if(!r.ok)throw new Error(j.error||'Request failed');return j}
+const fmt=n=>Number(n||0).toLocaleString('id-ID',{maximumFractionDigits:3});
+let meta={products:[],addons:[],machines:[],price_tiers:[],payment_methods:[]};
+let customers=[];
+async function req(url,opts){const r=await fetch(url,opts);const j=await r.json();if(!r.ok)throw new Error(j.error||'Request failed');return j}
+function isAreaProduct(){const p=meta.products.find(x=>String(x.id)===product.value);return p&&String(p.unit).toLowerCase()==='m2'}
+function effectiveBillable(){const p=meta.products.find(x=>String(x.id)===product.value);if(!p)return 0;const q=Number(qty.value||0);if(String(p.unit).toLowerCase()==='m2')return Number(width.value||0)*Number(height.value||0)/10000*q;return q}
+function effectivePrice(p,billable){const tiers=meta.price_tiers.filter(t=>String(t.product_id)===String(p.id)&&Number(t.min_qty)<=billable).sort((a,b)=>Number(b.min_qty)-Number(a.min_qty));return tiers[0]?Number(tiers[0].unit_price):Number(p.sell_price)}
+function renderEstimate(){const p=meta.products.find(x=>String(x.id)===product.value);if(!p)return;const areaMode=String(p.unit).toLowerCase()==='m2';widthWrap.style.display=areaMode?'block':'none';heightWrap.style.display=areaMode?'block':'none';const billable=effectiveBillable();const unitPrice=effectivePrice(p,billable);let total=billable*unitPrice;document.querySelectorAll('#addons input:checked').forEach(x=>total+=Number(x.dataset.price));total=Math.max(0,total-Number(discount.value||0));const areaTxt=areaMode?` • ${fmt(billable)} m²`:` • ${fmt(billable)} ${p.unit}`;estimate.textContent=`Estimate ${rupiah(total)}${areaTxt} • price ${rupiah(unitPrice)}/${p.unit} • reserve +${fmt(p.waste_percent)}% waste`}
 async function load(){
-  meta=await get('/api/meta');
-  const d=await get('/api/dashboard');
-  const orders=await get('/api/orders');
-  document.querySelector('#product').innerHTML=meta.products.map(p=>`<option value="${p.id}">${p.name} • ${rupiah(p.sell_price)}/${p.unit} • avail ${Number(p.available_qty).toLocaleString('id-ID')}</option>`).join('');
-  document.querySelector('#addons').innerHTML=meta.addons.map(a=>`<label class="check"><input type="checkbox" value="${a.id}" data-price="${a.sell_price}"><span>${a.name}<br><small>${a.category} • ${rupiah(a.sell_price)}</small></span></label>`).join('');
-  document.querySelector('#cards').innerHTML=`
+  [meta,customers]=await Promise.all([req('/api/meta'),req('/api/customers')]);
+  const [d,orders]=await Promise.all([req('/api/dashboard'),req('/api/orders')]);
+  product.innerHTML=meta.products.map(p=>`<option value="${p.id}">${p.name} • ${rupiah(p.sell_price)}/${p.unit} • avail ${fmt(p.available_qty)}</option>`).join('');
+  tierProduct.innerHTML=meta.products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  customerId.innerHTML=`<option value="">Walk-in / manual</option>`+customers.map(c=>`<option value="${c.id}">${c.name}${c.company?` • ${c.company}`:''}${c.phone?` • ${c.phone}`:''}</option>`).join('');
+  payment.innerHTML=meta.payment_methods.map(x=>`<option value="${x}">${x.replaceAll('_',' ')}</option>`).join('');
+  addons.innerHTML=meta.addons.map(a=>`<label class="check"><input type="checkbox" value="${a.id}" data-price="${a.sell_price}"><span>${a.name}<br><small>${a.category} • ${rupiah(a.sell_price)}</small></span></label>`).join('');
+  cards.innerHTML=`
     <div class="card"><div class="label">Active Jobs</div><div class="value">${d.orders.active}</div><small>${d.orders.overdue||0} overdue</small></div>
     <div class="card"><div class="label">Ready Pickup</div><div class="value">${d.orders.ready_pickup||0}</div></div>
-    <div class="card"><div class="label">Paid Revenue</div><div class="value">${rupiah(d.finance.revenue)}</div></div>
-    <div class="card"><div class="label">Est. Gross Profit</div><div class="value">${rupiah(d.finance.gross_profit)}</div><small>${Number(d.finance.gross_margin_pct||0).toFixed(1)}% margin</small></div>
-    <div class="card"><div class="label">Low Stock SKU</div><div class="value">${d.stock.low_stock}</div></div>
-    <div class="card"><div class="label">Reserved Material</div><div class="value">${Number(d.stock.reserved_qty||0).toLocaleString('id-ID')}</div></div>`;
-  document.querySelector('#orders').innerHTML=orders.map(o=>`<tr><td><strong>${o.order_no}</strong><br><small>${o.machine_name||'Unassigned machine'}</small></td><td>${o.customer_name}</td><td><span class="badge ${o.status}">${o.status.replaceAll('_',' ')}</span></td><td>${rupiah(o.grand_total)}</td><td>${rupiah(o.cost_estimate)}</td><td>${rupiah(Number(o.grand_total)-Number(o.cost_estimate))}</td><td>${new Date(o.created_at).toLocaleString('id-ID')}</td></tr>`).join('');
-  document.querySelector('#inventory').innerHTML=meta.products.map(p=>`<tr><td>${p.sku}</td><td>${p.name}</td><td>${p.material_category}</td><td>${p.machine_category}</td><td><strong>${Number(p.stock_qty).toLocaleString('id-ID')} ${p.unit}</strong><br><small>Reserved ${Number(p.reserved_qty).toLocaleString('id-ID')} • Available ${Number(p.available_qty).toLocaleString('id-ID')}</small></td><td>${p.min_stock}</td><td>${rupiah(p.sell_price)}</td></tr>`).join('');
-  estimate();
+    <div class="card"><div class="label">Revenue</div><div class="value">${rupiah(d.finance.revenue)}</div></div>
+    <div class="card"><div class="label">Gross Profit</div><div class="value">${rupiah(d.finance.gross_profit)}</div><small>${Number(d.finance.gross_margin_pct||0).toFixed(1)}%</small></div>
+    <div class="card"><div class="label">Waste Rate</div><div class="value">${Number(d.usage?.waste_pct||0).toFixed(1)}%</div><small>${fmt(d.usage?.waste_qty)} waste qty</small></div>
+    <div class="card"><div class="label">Customers</div><div class="value">${d.customers?.total||0}</div></div>`;
+  document.querySelector('#orders').innerHTML=orders.map(o=>`<tr><td><button class="linkbtn" onclick="openJob(${o.id})"><strong>${o.order_no}</strong></button><br><small>${o.machine_name||'Unassigned machine'}</small></td><td>${o.customer_name}</td><td><span class="badge ${o.status}">${o.status.replaceAll('_',' ')}</span></td><td>${rupiah(o.grand_total)}</td><td>${rupiah(o.actual_cost||o.cost_estimate)}</td><td>${rupiah(Number(o.grand_total)-Number(o.actual_cost||o.cost_estimate))}</td><td>${o.payment_method}</td><td>${new Date(o.created_at).toLocaleString('id-ID')}</td></tr>`).join('');
+  inventory.innerHTML=meta.products.map(p=>`<tr><td>${p.sku}</td><td>${p.name}<br><small>${p.material_category} • ${p.unit}</small></td><td>${fmt(p.stock_qty)}</td><td>${fmt(p.reserved_qty)}</td><td><strong>${fmt(p.available_qty)}</strong></td><td>${rupiah(p.sell_price)}</td></tr>`).join('');
+  renderTiers();renderEstimate();
 }
-function estimate(){
-  const p=meta.products.find(x=>String(x.id)===document.querySelector('#product').value);
-  let t=p?Number(p.sell_price)*Number(document.querySelector('#qty').value||0):0;
-  document.querySelectorAll('#addons input:checked').forEach(x=>t+=Number(x.dataset.price));
-  const waste=p?Number(p.waste_percent||0):0;
-  document.querySelector('#estimate').textContent=`Estimated total: ${rupiah(t)} • stock reserve includes ${waste}% waste`;
-}
-document.addEventListener('change',e=>{if(e.target.matches('#product,#qty,#addons input'))estimate()});
-document.querySelector('#createOrder').onclick=async()=>{try{
-  const addon_ids=[...document.querySelectorAll('#addons input:checked')].map(x=>Number(x.value));
-  await get('/api/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customer_name:document.querySelector('#customer').value||'Walk-in',customer_phone:document.querySelector('#phone').value,items:[{product_id:Number(document.querySelector('#product').value),qty:Number(document.querySelector('#qty').value||1)}],addon_ids,actor:'Admin POS',payment_method:'CASH'})});
-  await load();
-}catch(e){alert(e.message)}};
-document.querySelector('#addProduct').onclick=async()=>{try{
-  await get('/api/products',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sku:sku.value,name:pname.value,material_category:material.value,machine_category:machine.value,unit:unit.value,cost_price:cost.value,sell_price:sell.value,stock_qty:stock.value,min_stock:0,waste_percent:3})});
-  await load();
-}catch(e){alert(e.message)}};
+function renderTiers(){const id=String(tierProduct.value);const rows=meta.price_tiers.filter(t=>String(t.product_id)===id);tierList.innerHTML=rows.length?rows.map(t=>`<div class="check"><span>≥ ${fmt(t.min_qty)} → <strong>${rupiah(t.unit_price)}</strong></span></div>`).join(''):'<span class="muted">No tier yet, base price applies.</span>'}
+customerId.onchange=()=>{const c=customers.find(x=>String(x.id)===customerId.value);if(c){customer.value=c.name;phone.value=c.phone||''}}
+document.addEventListener('input',e=>{if(e.target.matches('#qty,#width,#height,#discount'))renderEstimate()});
+document.addEventListener('change',e=>{if(e.target.matches('#product,#addons input'))renderEstimate();if(e.target.matches('#tierProduct'))renderTiers()});
+createOrder.onclick=async()=>{try{const p=meta.products.find(x=>String(x.id)===product.value);const addon_ids=[...document.querySelectorAll('#addons input:checked')].map(x=>Number(x.value));const item={product_id:Number(product.value),qty:Number(qty.value||1),copies:Number(qty.value||1),width:isAreaProduct()?Number(width.value||0):null,height:isAreaProduct()?Number(height.value||0):null};const created=await req('/api/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customer_id:customerId.value?Number(customerId.value):null,customer_name:customer.value||'Walk-in',customer_phone:phone.value,payment_method:payment.value,discount_total:Number(discount.value||0),due_at:due.value||null,items:[item],addon_ids,actor:'Admin POS'})});alert(`Order ${created.order_no} created`);await load()}catch(e){alert(e.message)}};
+addCustomer.onclick=async()=>{try{await req('/api/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:cName.value,phone:cPhone.value,email:cEmail.value,company:cCompany.value,address:cAddress.value})});cName.value=cPhone.value=cEmail.value=cCompany.value=cAddress.value='';await load()}catch(e){alert(e.message)}};
+addProduct.onclick=async()=>{try{await req('/api/products',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sku:sku.value,name:pname.value,material_category:material.value,machine_category:machine.value,unit:unit.value,cost_price:cost.value,sell_price:sell.value,stock_qty:stock.value,min_stock:minStock.value,waste_percent:waste.value})});await load()}catch(e){alert(e.message)}};
+addTier.onclick=async()=>{try{await req(`/api/products/${tierProduct.value}/price-tiers`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({min_qty:tierMin.value,unit_price:tierPrice.value})});tierMin.value=tierPrice.value='';await load()}catch(e){alert(e.message)}};
+async function openJob(id){try{const d=await req(`/api/orders/${id}`);jobPanel.style.display='block';jobPanel.scrollIntoView({behavior:'smooth'});jobDetail.innerHTML=`<div class="split"><div><h3>${d.order.order_no}</h3><p><strong>${d.order.customer_name}</strong>${d.order.company?` · ${d.order.company}`:''}<br>${d.order.customer_phone||''}<br>Status: <span class="badge ${d.order.status}">${d.order.status.replaceAll('_',' ')}</span><br>Payment: ${d.order.payment_method}<br>Due: ${d.order.due_at?new Date(d.order.due_at).toLocaleString('id-ID'):'-'}</p><h3>Items</h3>${d.items.map(i=>`<div class="check"><span><strong>${i.name}</strong><br>${i.pricing_basis==='AREA_M2'?`${fmt(i.width)} × ${fmt(i.height)} cm × ${fmt(i.copies)} = ${fmt(i.billable_qty)} m²`:`${fmt(i.billable_qty)} ${i.unit}`}<br>${rupiah(i.unit_price)} / ${i.unit}</span></div>`).join('')}<h3>Finishing</h3>${d.addons.length?d.addons.map(a=>`<div>${a.name} × ${fmt(a.qty)}</div>`).join(''):'<span class="muted">None</span>'}</div><div><h3>Production Usage</h3>${d.usage.length?d.usage.map(u=>`<div class="check"><span>${u.product_name}<br>Good ${fmt(u.actual_qty)} · Waste ${fmt(u.waste_qty)} ${u.unit}<br><small>${u.reason||''}</small></span></div>`).join(''):'<span class="muted">Not logged yet.</span>'}<h3>Timeline</h3>${d.events.map(e=>`<div style="margin-bottom:8px"><strong>${e.status.replaceAll('_',' ')}</strong> · ${e.actor||'-'}<br><small>${new Date(e.created_at).toLocaleString('id-ID')} ${e.note?`· ${e.note}`:''}</small></div>`).join('')}</div></div>`}catch(e){alert(e.message)}}
+window.openJob=openJob;closeJob.onclick=()=>jobPanel.style.display='none';
 load();
