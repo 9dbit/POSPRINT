@@ -1,1 +1,86 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>POSPRINT Admin</title><link rel="stylesheet" href="/styles.css"></head><body><div class="topbar"><div><span class="brand">POSPRINT</span> <span class="muted">Internal Admin</span></div><nav><a href="/admin">Admin</a><a href="/operator">Operator</a></nav></div><main class="wrap"><section class="grid cards" id="cards"></section><section class="split"><div class="panel"><h2>Create paid order</h2><div class="form-grid"><div><label>Customer</label><input id="customer" placeholder="Nama customer"></div><div><label>Phone</label><input id="phone" placeholder="08..."></div><div><label>Product</label><select id="product"></select></div><div><label>Qty</label><input id="qty" type="number" min="0.001" step="0.001" value="1"></div></div><h3>Add-on finishing</h3><div id="addons" class="checkbox-grid"></div><div class="toolbar" style="margin-top:14px"><button class="btn green" id="createOrder">Create & mark paid</button><span id="estimate" class="muted"></span></div></div><div class="panel"><h2>Add product</h2><div class="form-grid"><div><label>SKU</label><input id="sku"></div><div><label>Name</label><input id="pname"></div><div><label>Material category</label><input id="material" placeholder="Art Paper"></div><div><label>Machine category</label><input id="machine" placeholder="Digital Press"></div><div><label>Unit</label><input id="unit" value="pcs"></div><div><label>Cost price</label><input id="cost" type="number"></div><div><label>Sell price</label><input id="sell" type="number"></div><div><label>Opening stock</label><input id="stock" type="number"></div></div><button class="btn" id="addProduct" style="margin-top:12px">Save product</button></div></section><section class="panel"><h2>Orders</h2><div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Status</th><th>Total</th><th>Est. Cost</th><th>Gross</th><th>Created</th></tr></thead><tbody id="orders"></tbody></table></div></section><section class="panel"><h2>Inventory</h2><div class="table-wrap"><table><thead><tr><th>SKU</th><th>Product</th><th>Material</th><th>Machine</th><th>Stock</th><th>Min</th><th>Sell</th></tr></thead><tbody id="inventory"></tbody></table></div></section></main><script src="/admin.js"></script></body></html>
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>POSPRINT Admin</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="topbar">
+    <div><span class="brand">POSPRINT</span> <span class="muted">Internal Admin · v3</span></div>
+    <nav><a href="/admin">Admin</a><a href="/operator">Operator</a></nav>
+  </div>
+  <main class="wrap">
+    <section class="grid cards" id="cards"></section>
+
+    <section class="split">
+      <div class="panel">
+        <h2>Create Paid Order</h2>
+        <div class="form-grid">
+          <div><label>Saved customer</label><select id="customerId"><option value="">Walk-in / manual</option></select></div>
+          <div><label>Customer name</label><input id="customer" placeholder="Nama customer"></div>
+          <div><label>Phone</label><input id="phone" placeholder="08..."></div>
+          <div><label>Payment</label><select id="payment"></select></div>
+          <div><label>Product</label><select id="product"></select></div>
+          <div><label>Qty / Copies</label><input id="qty" type="number" min="0.001" step="0.001" value="1"></div>
+          <div id="widthWrap"><label>Width (cm)</label><input id="width" type="number" min="0" step="0.1"></div>
+          <div id="heightWrap"><label>Height (cm)</label><input id="height" type="number" min="0" step="0.1"></div>
+          <div><label>Discount</label><input id="discount" type="number" min="0" value="0"></div>
+          <div><label>Due date</label><input id="due" type="datetime-local"></div>
+        </div>
+        <h3>Add-on finishing</h3>
+        <div id="addons" class="checkbox-grid"></div>
+        <div class="toolbar" style="margin-top:14px">
+          <button class="btn green" id="createOrder">Create & Mark Paid</button>
+          <span id="estimate" class="muted"></span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Customer Master</h2>
+        <div class="form-grid">
+          <div><label>Name</label><input id="cName"></div>
+          <div><label>Phone</label><input id="cPhone"></div>
+          <div><label>Email</label><input id="cEmail"></div>
+          <div><label>Company</label><input id="cCompany"></div>
+          <div style="grid-column:1/-1"><label>Address</label><input id="cAddress"></div>
+        </div>
+        <button class="btn" id="addCustomer" style="margin-top:12px">Save Customer</button>
+
+        <hr style="margin:22px 0;border:0;border-top:1px solid #ddd">
+        <h2>Add Product</h2>
+        <div class="form-grid">
+          <div><label>SKU</label><input id="sku"></div>
+          <div><label>Name</label><input id="pname"></div>
+          <div><label>Material category</label><input id="material" placeholder="Art Paper"></div>
+          <div><label>Machine category</label><input id="machine" placeholder="Digital Press"></div>
+          <div><label>Unit</label><select id="unit"><option value="pcs">pcs</option><option value="sheet">sheet</option><option value="m2">m²</option><option value="meter">meter</option></select></div>
+          <div><label>Cost price</label><input id="cost" type="number"></div>
+          <div><label>Sell price</label><input id="sell" type="number"></div>
+          <div><label>Opening stock</label><input id="stock" type="number"></div>
+          <div><label>Min stock</label><input id="minStock" type="number" value="0"></div>
+          <div><label>Waste %</label><input id="waste" type="number" value="3" step="0.1"></div>
+        </div>
+        <button class="btn" id="addProduct" style="margin-top:12px">Save Product</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="toolbar"><h2 style="margin-right:auto">Orders</h2><span class="muted">Click order number for Job Ticket</span></div>
+      <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Status</th><th>Total</th><th>Est. Cost</th><th>Gross</th><th>Payment</th><th>Created</th></tr></thead><tbody id="orders"></tbody></table></div>
+    </section>
+
+    <section class="split">
+      <div class="panel"><h2>Inventory</h2><div class="table-wrap"><table><thead><tr><th>SKU</th><th>Product</th><th>Stock</th><th>Reserved</th><th>Available</th><th>Sell</th></tr></thead><tbody id="inventory"></tbody></table></div></div>
+      <div class="panel"><h2>Price Tier</h2><div class="form-grid"><div><label>Product</label><select id="tierProduct"></select></div><div><label>Min qty / m²</label><input id="tierMin" type="number" step="0.001"></div><div><label>Unit price</label><input id="tierPrice" type="number"></div></div><button class="btn" id="addTier" style="margin-top:12px">Save Price Tier</button><div id="tierList" style="margin-top:16px"></div></div>
+    </section>
+
+    <section class="panel" id="jobPanel" style="display:none">
+      <div class="toolbar"><h2 style="margin-right:auto">Job Ticket</h2><button class="btn" id="closeJob">Close</button></div>
+      <div id="jobDetail"></div>
+    </section>
+  </main>
+  <script src="/admin.js"></script>
+</body>
+</html>
